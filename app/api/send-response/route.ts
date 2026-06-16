@@ -12,6 +12,15 @@ const transporter = nodemailer.createTransport({
 })
 
 export async function POST(request: Request) {
+  // Log full response to server logs (visible in Vercel logs)
+    try {
+      const data = await request.json()
+      console.log('Received date response:', JSON.stringify(data));
+    } catch (logErr) {
+      console.error('Failed to stringify response for logs:', logErr)
+    }
+    
+
   if (!process.env.EMAIL_USER || !process.env.EMAIL_APP_PASSWORD) {
     console.error('Missing email credentials');
     return NextResponse.json({ success: false, error: 'Missing email configuration' }, { status: 500 });
@@ -20,12 +29,6 @@ export async function POST(request: Request) {
   try {
     const data = await request.json()
 
-    // Log full response to server logs (visible in Vercel logs)
-    try {
-      console.log('Received date response:', JSON.stringify(data));
-    } catch (logErr) {
-      console.error('Failed to stringify response for logs:', logErr)
-    }
     
     await transporter.sendMail({
       from: process.env.EMAIL_USER,
