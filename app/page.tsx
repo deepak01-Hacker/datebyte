@@ -1,18 +1,9 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import dynamic from "next/dynamic";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { Slider } from "@/components/ui/slider";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 import { Calendar } from "@/components/ui/calendar";
 import {
   Select,
@@ -50,6 +41,78 @@ const fadeInUp = {
   exit: { opacity: 0, y: -20 },
   transition: { duration: 0.5 },
 };
+
+function EvasiveNoButton() {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const btnRef = useRef<HTMLButtonElement | null>(null);
+  const [pos, setPos] = useState({ left: 0, top: 0 });
+
+  // Minimum allowed distance (px) between cursor and button center
+  const MIN_DIST = 140;
+  // padding inside container
+  const PADDING = 8;
+
+  useEffect(() => {
+    const container = containerRef.current || document.body;
+
+    const onMove = (e: MouseEvent) => {
+      const btn = btnRef.current;
+      const containerRect = containerRef.current?.getBoundingClientRect() || {
+        left: 0,
+        top: 0,
+        width: window.innerWidth,
+        height: window.innerHeight,
+      };
+
+      const btnRect = btn?.getBoundingClientRect();
+      const btnCenterX = btnRect ? btnRect.left + btnRect.width / 2 : containerRect.left + 40;
+      const btnCenterY = btnRect ? btnRect.top + btnRect.height / 2 : containerRect.top + 16;
+
+      const dx = e.clientX - btnCenterX;
+      const dy = e.clientY - btnCenterY;
+      const dist = Math.hypot(dx, dy);
+
+      if (dist < MIN_DIST) {
+        // move button to the opposite side of the cursor, at MIN_DIST distance
+        const angle = Math.atan2(dy, dx);
+        const targetX = e.clientX + Math.cos(angle) * MIN_DIST;
+        const targetY = e.clientY + Math.sin(angle) * MIN_DIST;
+
+        // calculate left/top relative to container
+        const newLeft = targetX - containerRect.left - (btnRect ? btnRect.width / 2 : 0);
+        const newTop = targetY - containerRect.top - (btnRect ? btnRect.height / 2 : 0);
+
+        const maxLeft = Math.max(0, containerRect.width - (btnRect ? btnRect.width : 80) - PADDING);
+        const maxTop = Math.max(0, containerRect.height - (btnRect ? btnRect.height : 36) - PADDING);
+
+        // clamp to container bounds
+        const clampedLeft = Math.max(PADDING, Math.min(newLeft, maxLeft));
+        const clampedTop = Math.max(PADDING, Math.min(newTop, maxTop));
+
+        setPos({ left: clampedLeft, top: clampedTop });
+      }
+    };
+
+    container.addEventListener("mousemove", onMove);
+    return () => container.removeEventListener("mousemove", onMove);
+  }, []);
+
+  // reset position when cursor leaves container
+  const handleLeave = () => setPos({ left: 0, top: 0 });
+
+  return (
+    <div ref={containerRef} className="relative inline-block w-44 h-12" onMouseLeave={handleLeave}>
+      <button
+        ref={btnRef}
+        onClick={(e) => e.preventDefault()}
+        className="border-pink-300 text-pink-500 bg-white font-bold py-2 px-4 rounded-full shadow-sm"
+        style={{ position: "absolute", left: pos.left, top: pos.top, transition: "left 260ms cubic-bezier(.2,.8,.2,1), top 260ms cubic-bezier(.2,.8,.2,1)" }}
+      >
+        No
+      </button>
+    </div>
+  );
+}
 
 export default function EnchantingDateProposalApp() {
   const [step, setStep] = useState(0);
@@ -95,9 +158,9 @@ export default function EnchantingDateProposalApp() {
   const steps = [
     
     <motion.div key="step0" className="text-center" {...fadeInUp}>
-      <h1 className="text-4xl sm:text-5xl font-extrabold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-pink-600 to-rose-500">
-        Will you go on a date with me?
-      </h1>
+        <h1 className="text-4xl sm:text-5xl font-extrabold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-pink-600 to-rose-500">
+          Madam ji, will you go on a date with me?
+        </h1>
       <motion.img
         initial={{ opacity: 0, scale: 0.8 }}
         animate={{ opacity: 1, scale: 1 }}
@@ -116,49 +179,16 @@ export default function EnchantingDateProposalApp() {
         >
           Yes, I&apos;d love to!
         </Button>
-        <Dialog>
-          <DialogTrigger asChild>
-            <Button
-              variant="outline"
-              className="border-pink-300 text-pink-500 hover:bg-pink-100 font-bold py-2 px-4 rounded-full transition-all duration-300 transform hover:scale-105"
-            >
-              No
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="bg-pink-50 border-2 border-pink-300">
-            <DialogHeader>
-              <DialogTitle className="text-2xl font-bold text-pink-600">
-                There is no &quot;NOOOOOO&quot;
-              </DialogTitle>
-              <DialogDescription className="text-lg text-pink-500">
-                You must come with me!
-              </DialogDescription>
-            </DialogHeader>
-            <motion.img
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.5 }}
-              src="https://media1.tenor.com/m/2XJN2YEYbIAAAAAd/peach-and.gif"
-              alt="Excited bear gif"
-              className="w-full max-w-md mx-auto mb-4 rounded-lg shadow-lg"
-            />{" "}
-            <Button
-              onClick={() => {
-                handleAnswer("isAvailable", true);
-                triggerConfetti();
-              }}
-              className="bg-pink-500 hover:bg-pink-600 text-white font-bold py-2 px-4 rounded-full transition-all duration-300 transform hover:scale-105"
-            >
-              Okay, I&apos;ll come!
-            </Button>
-          </DialogContent>
-        </Dialog>
+        {/* Playful evasive "No" button: it moves away on hover/mouse enter */}
+        <div className="inline-block align-middle">
+          <EvasiveNoButton />
+        </div>
       </div>
     </motion.div>,
 
     
     <motion.div key="step1" className="text-center" {...fadeInUp}>
-      <StepCard stepNumber={1} totalSteps={6}>
+      <StepCard stepNumber={1} totalSteps={4}>
       <h2 className="text-4xl sm:text-5xl font-playfair font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-rose-500 to-pink-600">
         YEYYYYYYYY, WHEN SHALL WE GO?
       </h2>
@@ -176,6 +206,8 @@ export default function EnchantingDateProposalApp() {
           selected={answers.date || undefined}
           onSelect={(date) => setAnswers({ ...answers, date: date || null })}
           className="mx-auto mb-4 w-full max-w-md"
+          month={new Date(new Date().getFullYear(), 6)}
+          disabled={(day) => day.getMonth() !== 6}
         />
         <div className="flex gap-3 justify-center mt-4">
           <Select onValueChange={(val) => setHour(val)}>
@@ -231,17 +263,17 @@ export default function EnchantingDateProposalApp() {
 
   
     <motion.div key="step2" className="text-center" {...fadeInUp}>
-      <StepCard stepNumber={2} totalSteps={6}>
+      <StepCard stepNumber={2} totalSteps={4}>
       <h2 className="text-4xl sm:text-5xl font-playfair font-bold mb-8 bg-clip-text text-transparent bg-gradient-to-r from-rose-500 to-pink-600">
         What shall we feast on, my dear?
       </h2>
       <div className="grid grid-cols-2 gap-4 md:gap-6 mb-8">
         {[
-          { name: "Lasagna", icon: <Utensils className="w-6 h-6" /> },
-          { name: "Chicken Pie", icon: <Utensils className="w-6 h-6" /> },
-          { name: "Chicken Shawarma", icon: <Utensils className="w-6 h-6" /> },
           { name: "Snack Platter", icon: <Coffee className="w-6 h-6" /> },
-          { name: "Mix rice", icon: <Utensils className="w-6 h-6" /> },
+          { name: "Rajma Chawal", icon: <Utensils className="w-6 h-6" /> },
+          { name: "Paneer Butter Masala", icon: <Utensils className="w-6 h-6" /> },
+          { name: "Veg Biryani", icon: <Utensils className="w-6 h-6" /> },
+          { name: "Masala Dosa", icon: <Utensils className="w-6 h-6" /> },
         ].map(({ name, icon }) => (
           <SelectButton
             key={name}
@@ -269,87 +301,34 @@ export default function EnchantingDateProposalApp() {
 
      
     <motion.div key="step3" className="text-center" {...fadeInUp}>
+      <StepCard stepNumber={3} totalSteps={4}>
       <h2 className="text-3xl font-semibold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-rose-500 to-pink-600">
         What shall we watch together?
       </h2>
-      <div className="grid grid-cols-2 gap-6 mb-6">
-        {[
-          "The Notebook",
-          "La La Land",
-          "Titanic",
-          "Pride and Prejudice",
-          "Anyone But You",
-          "Past Lives",
-          "Love at First Sight",
-          "Through My Window 3",
-          "Something else",
-        ].map((movie) => (
-          <motion.button
-            key={movie}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            className="bg-white text-pink-600 hover:bg-pink-100 font-bold py-4 px-6 rounded-lg shadow-md transition-colors duration-300"
-            onClick={() => {
-              if (movie === "Something else") {
-                const customMovie = prompt(
-                  "What movie would you like to watch?"
-                );
-                if (customMovie) handleAnswer("movie", customMovie);
-              } else {
-                handleAnswer("movie", movie);
-              }
-            }}
-          >
-            <Film className="mx-auto mb-2" />
-            {movie}
-          </motion.button>
-        ))}
+      <div className="grid grid-cols-1 gap-6 mb-6">
+        <motion.button
+          key="other"
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+          className="bg-white text-pink-600 hover:bg-pink-100 font-bold py-4 px-6 rounded-lg shadow-md transition-colors duration-300 max-w-md mx-auto"
+          onClick={() => {
+            const customMovie = prompt("What movie would you like to watch?");
+            if (customMovie) handleAnswer("movie", customMovie);
+          }}
+        >
+          <Film className="mx-auto mb-2" />
+          Something else (suggest any)
+        </motion.button>
       </div>
-    </motion.div>,
-
-    
-    <motion.div key="step4" className="text-center" {...fadeInUp}>
-      <StepCard stepNumber={4} totalSteps={6}>
-      <h2 className="text-4xl sm:text-5xl font-playfair font-bold mb-8 bg-clip-text text-transparent bg-gradient-to-r from-rose-500 to-pink-600">
-        How excited are you for our date?
-      </h2>
-      <div className="max-w-lg mx-auto mb-8 p-8 bg-gradient-to-b from-white/80 to-pink-50/60 rounded-2xl shadow-lg border border-pink-100">
-        <Slider
-          defaultValue={[50]}
-          max={100}
-          step={25}
-          onValueChange={(value) =>
-            setAnswers({ ...answers, excitement: value[0] })
-          }
-        />
-        <div className="flex justify-between mt-6 text-sm text-pink-600 font-semibold">
-          <span>😐 Can&apos;t wait!</span>
-          <span>🤩 Super duper excited!</span>
-        </div>
-      </div>
-      <motion.div
-        className="text-4xl font-playfair font-bold text-pink-600 mb-8"
-        initial={{ scale: 0 }}
-        animate={{ scale: 1 }}
-        transition={{ type: "spring", stiffness: 260, damping: 20 }}
-      >
-        Excitement level: <span className="text-rose-500">{answers.excitement}%</span>
-      </motion.div>
-      <Button
-        onClick={() => {
-          setStep(step + 1);
-          setTimeout(triggerConfetti, 500);
-        }}
-        className="bg-gradient-to-r from-pink-500 to-rose-500 hover:brightness-95 text-white font-bold py-3 px-8 rounded-full transition-all duration-300 transform hover:scale-105 shadow-lg"
-      >
-        Let&apos;s make it official! 💕
-      </Button>
       </StepCard>
     </motion.div>,
 
+    
+    
+
      
-    <motion.div key="step5" className="text-center" {...fadeInUp}>
-      <StepCard stepNumber={6} totalSteps={6}>
+    <motion.div key="step4" className="text-center" {...fadeInUp}>
+      <StepCard stepNumber={4} totalSteps={4}>
       <h2 className="text-5xl sm:text-6xl font-playfair font-bold mb-8 bg-clip-text text-transparent bg-gradient-to-r from-pink-600 to-rose-500">
         It&apos;s a date, my love!
       </h2>
@@ -389,9 +368,11 @@ export default function EnchantingDateProposalApp() {
       >
         <p className="text-base">We&apos;ll enjoy some delicious <span className="font-semibold">{answers.food.join(", ")}</span>.</p>
         <p className="text-base">Then we&apos;ll watch <span className="font-semibold italic">&quot;{answers.movie}&quot;</span> together.</p>
-        <p className="text-xl font-playfair font-bold mt-6">
-          Your excitement level: <span className="text-rose-600">{answers.excitement}/100</span>
-        </p>
+        <div className="text-xl font-playfair font-bold mt-6 space-y-3">
+          <p>P.S. I promise to bring extra samosas .. and maybe a cheesy pickup line or two. 🤭</p>
+          <p className="text-base font-normal italic">
+          <br/>.</p>
+        </div>
       </motion.div>
       </StepCard>
     </motion.div>,
@@ -411,7 +392,7 @@ export default function EnchantingDateProposalApp() {
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify(answers)
+          body: JSON.stringify(answers),
         });
       } catch (error) {
         console.error('Failed to send response:', error);
