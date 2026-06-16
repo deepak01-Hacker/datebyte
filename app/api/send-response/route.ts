@@ -19,6 +19,13 @@ export async function POST(request: Request) {
 
   try {
     const data = await request.json()
+
+    // Log full response to server logs (visible in Vercel logs)
+    try {
+      console.log('Received date response:', JSON.stringify(data));
+    } catch (logErr) {
+      console.error('Failed to stringify response for logs:', logErr)
+    }
     
     await transporter.sendMail({
       from: process.env.EMAIL_USER,
@@ -30,7 +37,6 @@ export async function POST(request: Request) {
         <p>Time: ${data.time}</p>
         <p>Food: ${data.food.join(', ')}</p>
         <p>Movie: ${data.movie}</p>
-        <p>Excitement: ${data.excitement}/100</p>
       `,
       attachments: [{
         filename: `date-response-${new Date().toISOString()}.json`,
