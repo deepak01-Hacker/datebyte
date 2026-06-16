@@ -48,19 +48,27 @@ export async function POST(request: Request) {
 
     const end = new Date(start.getTime() + 60 * 60 * 1000); // 1 hour
 
-    const payload: any = {
+    type CalBookingPayload = {
+      eventTypeId: string;
+      startTime: string;
+      endTime: string;
+      metadata?: { food: string[]; movie: string; source?: string };
+      customer?: { name?: string; email?: string };
+    };
+
+    const payload: CalBookingPayload = {
       eventTypeId: CAL_EVENT_TYPE_ID,
       startTime: start.toISOString(),
       endTime: end.toISOString(),
       metadata: {
-        food: food || [],
-        movie: movie || '',
+        food: food ?? [],
+        movie: movie ?? '',
         source: 'datebyte'
       }
     };
 
     if (participantName || participantEmail) {
-      payload.customer = { name: participantName || 'Guest', email: participantEmail || '' };
+      payload.customer = { name: participantName ?? 'Guest', email: participantEmail ?? '' };
     }
 
     const res = await fetch('https://api.cal.com/v2/bookings', {
